@@ -1,0 +1,182 @@
+<template>
+    <div class="">
+        <v-app>
+            <div class="row justify-content-center auto-height-container">
+                <v-data-table
+                    :headers="headers"
+                    :items="items"
+                    class="elevation-1 table-container"
+                >
+                    <template v-slot:top>
+                        <v-toolbar flat color="white">
+                            <v-spacer></v-spacer>
+                            <v-dialog v-model="dialog" max-width="500px">
+                                <template v-slot:activator="{ on, attrs }">
+                                    <v-btn
+                                        color="#94d0bb"
+                                        dark
+                                        class="mb-2"
+                                        v-bind="attrs"
+                                        v-on="on"
+                                    >New Author</v-btn>
+                                </template>
+                                <v-card>
+                                    <v-card-title>
+                                        <span class="headline">{{ formTitle }}</span>
+                                    </v-card-title>
+                                    <v-card-text>
+                                        <v-container>
+                                            <v-row>
+                                                <v-col cols="12" sm="6" md="4">
+                                                    <v-text-field color="rgb(148, 208, 187)" v-model="editedItem.name" label="Name"></v-text-field>
+                                                </v-col>
+                                                <v-col cols="12" sm="6" md="4">
+                                                    <v-text-field color="rgb(148, 208, 187)" v-model="editedItem.surname" label="Surname"></v-text-field>
+                                                </v-col>
+                                            </v-row>
+                                        </v-container>
+                                    </v-card-text>
+                                    <v-card-actions>
+                                        <v-spacer></v-spacer>
+                                        <v-btn color="rgb(148, 208, 187)" text @click="close">Cancel</v-btn>
+                                        <v-btn color="rgb(148, 208, 187)" text @click="save">Save</v-btn>
+                                    </v-card-actions>
+                                </v-card>
+                            </v-dialog>
+                        </v-toolbar>
+                    </template>
+                    <template v-slot:item.actions="{ item }">
+                        <v-icon
+                            small
+                            class="mr-2"
+                            @click="editItem(item)"
+                        >
+                            mdi-pencil
+                        </v-icon>
+                        <v-icon
+                            small
+                            @click="deleteItem(item)"
+                        >
+                            mdi-delete
+                        </v-icon>
+                    </template>
+                    <template v-slot:no-data>
+                        <v-btn color="primary" @click="initialize">Reset</v-btn>
+                    </template>
+                </v-data-table>
+            </div>
+        </v-app>
+    </div>
+</template>
+
+<script>
+    export default {
+        data: () => ({
+            dialog: false,
+            headers: [
+                { text: 'Surname', align: 'start', value: 'surname',},
+                { text: 'Name', value: 'name' },
+                { text: 'Number of books', value: 'books.length' },
+                { text: 'Actions', value: 'actions', sortable: false },
+            ],
+            items: [],
+            editedIndex: -1,
+            editedItem: {
+                name: '',
+                surname: '',
+                books: {},
+            },
+            defaultItem: {
+                name: '',
+                surname: '',
+                books: {},
+            },
+        }),
+
+        computed: {
+            formTitle () {
+                return this.editedIndex === -1 ? 'Add new author' : 'Edit author'
+            },
+        },
+
+        watch: {
+            dialog (val) {
+                val || this.close()
+            },
+        },
+
+        created () {
+            this.initialize()
+        },
+
+        methods: {
+            initialize () {
+                axios
+                    .get('/api/authors')
+                    .then(response => (
+                        this.items = response.data
+                    ))
+                    .catch(error => console.log(error))
+            },
+
+            editItem (item) {
+                this.editedIndex = this.items.indexOf(item)
+                this.editedItem = Object.assign({}, item)
+                this.dialog = true
+            },
+
+            deleteItem (item) {
+                axios.patch('/api/authors/delete', {id:item.id})
+                    .then(res => {
+                        console.log(res)
+                    })
+                this.initialize()
+                const index = this.items.indexOf(item)
+                this.items.splice(index, 1)
+            },
+
+            close () {
+                this.dialog = false
+                this.$nextTick(() => {
+                    this.editedItem = Object.assign({}, this.defaultItem)
+                    this.editedIndex = -1
+                })
+            },
+
+            /*
+             *      save or update item
+             * */
+            save () {
+                this.editedItem.is_borrowed == false ? this.editedItem.is_borrowed = 0 : this.editedItem.is_borrowed = 1
+                if (this.editedIndex === -1) {
+                    axios.post('/api/authors/create', this.editedItem)
+                        .then(res => {
+                            console.log(res)
+                        })
+                } else {
+                    axios.put('/api/authors/update', this.editedItem)
+                        .then(res => {
+                            console.log(res)
+                        })
+                }
+                this.initialize()
+                if (this.editedIndex > -1) {
+                    Object.assign(this.items[this.editedIndex], this.editedItem)
+                } else {
+                    this.items.push(this.editedItem)
+                }
+                this.close()
+            },
+        },
+    }
+</script>
+<style>
+    .table-container{
+        width:90vw;
+        margin:25px 0px 0px 0px;
+    }
+    .auto-height-container{
+        flex: 0 1 auto;
+    }
+</style>
+
